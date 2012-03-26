@@ -1,0 +1,177 @@
+#!/usr/bin/python
+
+# sendtmail
+# ------------
+# Written by Nate Hardison
+# Last updated 3/21/12
+#
+# Generates and sends emails based on a CSV template. Useful
+# for Gmail and for sending customized attachments to each
+# recipient.
+#
+# DEPENDENCIES:
+# - Jinja2: http://jinja.pocoo.org/docs/ (easy_install Jinja2)
+# - Python 2.7.1 or greater (only tested on 2.7.1)
+#
+# How to use:
+#
+# 1) Create a CSV "workfile" containing all of your email details.
+#    Each row should contain header info (FROM, TO, CC, and BCC)
+#    for a single recipient. BODY and SUBJECT are also required.
+# 2) BODY should be a path (absolute or relative to the location
+#    of the CSV workfile) to a template file that uses Jinja2
+#    templating syntax (see http://jinja.pocoo.org/docs/templates/
+#    for details). Each row can have a different value for BODY
+#    if you want.
+# 3) SUBJECT should just be a string in the CSV, though it can
+#    also use Jinja2 template syntax.
+# 4) If there is a field called ATTACHMENT in the CSV, it should
+#    point to a file to attach to the email (absolute or relative
+#    path just like BODY). Right now this script only supports one
+#    attachment.
+# 5) You also need to create a file containing the details
+#    of the account to which you want to connect. This file
+#    needs to have 3 lines, with the SMTP host and port on 
+#    the first, the user account on the second, and the account
+#    password on the third.
+# 6) Run sendtmail <workfile> <account file> to use. If you set
+#    --debug=True, then sendtmail will print out all of your 
+#    templatized emails, which is super handy to make sure you
+#    didn't screw anything up.
+
+import argparse
+import csv
+import os
+import smtplib
+import sys
+from email import Encoders
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEText import MIMEText
+from email.mime.application import MIMEApplication
+from email.Utils import formatdate
+from jinja2 import Environment, FileSystemLoader
+
+EMAIL_HEADERS = ['From', 'To', 'Cc', 'Bcc']
+
+jinja2_ENV = Environment(
+    trim_blocks = True,
+    autoescape = False
+)
+
+def generate_attachment(path):
+    with open(path, "rb") as f:
+        try:
+            attachment = MIMEApplication(f.read())
+            attachment.add_header('Content-Disposition', 
+                "attachment; filename = %s" % os.path.basename(path))
+            return attachment
+            
+        except:
+            return MIMEText('File attachment error', 'plain')
+
+
+def generate_body(body_template, options):
+    # All body templates *should* be in the same directory, so
+    # we just have to set this once
+    if jinja2_ENV.loader is None:
+        template_path = os.path.abspath(body_template)
+        jinja2_ENV.loader = FileSystemLoader(os.path.dirname(template_path))
+
+    # Generate the body using the rest of the options
+    return jinja2_ENV.get_template(body_template).render(options)    
+
+
+def build_email(options):
+    email = MIMEMultipart()
+    for header in EMAIL_HEADERS:
+    	email[header] = options[header.upper()]
+
+    # Run subject through the Jinja2 template engine
+    email['Subject'] = jinja2_ENV.from_string(options['SUBJECT']).render(options)
+
+    # Run body through Jinja2 template engine and attach
+    body = generate_body(options['BODY'], options)
+    email.attach(MIMEText(body, 'plain'))
+
+    if 'ATTACHMENT' in options:
+        email.attach(add_attachment(os.path.abspath(options['ATTACHMENT'])))
+
+    email['Date'] = formatdate(localtime=True)
+
+    return email.as_string()
+
+
+def connect_to_mail_server(host, username, password):
+    server = smtplib.SMTP(host)
+    server.starttls()
+    server.ehlo()
+    server.login(username, password)
+    
+    return server
+
+
+def parse_account_info(filename):
+    with open(filename, 'rU') as account_file:
+        host = account_file.readline().strip()
+        username = account_file.readline().strip()
+        password = account_file.readline().strip()
+
+        return (host, username, password)
+
+def main():
+    parser = argparse.ArgumentParser(description='Generate and send templatized emails')
+    parser.add_argument('workfile',
+        help='a CSV file describing the emails to send (headers, attachments, etc.)')
+    parser.add_argument('account',
+        help='a file containing the email account details to send from')
+    parser.add_argument('-d', '--debug', default=False,
+        help='set =True to print emails to console instead of sending')
+    args = parser.parse_args()
+
+    server = None
+    
+    # Don't worry about parsing the account file or connecting to the
+    # mail server if we're in debug mode.
+    if not args.debug:
+        smtp_host, username, password = parse_account_info(args.account)
+        print "Establishing connection to %s as %s." % (smtp_host, username)
+        server = connect_to_mail_server(smtp_host, username, password)
+        print "Successfully connected."
+        response = raw_input("Are you sure you want to send emails (y/n)? ")
+        if response != 'y':
+            print "Exiting."
+            sys.exit()
+        
+    # We need to change into the same directory as the template file
+    # since we'll need to resolve any relative paths it contains relative
+    # to its position, not ours
+    original_dir = os.getcwd()
+    workfile_path = os.path.abspath(args.workfile)
+    os.chdir(os.path.dirname(workfile_path))
+
+    with open(workfile_path, 'rU') as workfile:
+
+        # DictReader pulls out each row of CSV as a dict and
+        # uses first row as keys
+        workfile_reader = csv.DictReader(workfile)
+
+        # Each row in the CSV workfile builds one email
+        for row in workfile_reader:
+            from_addr = row['FROM']
+            to_addrs = row['TO']
+            email = build_email(row)
+            
+            if args.debug:
+                print email
+            else:
+                print "Sending email to %s." % to_addrs
+                server.sendmail(from_addr, to_addrs, email)
+	
+    os.chdir(original_dir)
+
+    if not args.debug:
+        server.quit()
+        print "Success!"
+
+if __name__ == '__main__':
+    main()
