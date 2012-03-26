@@ -1,0 +1,1 @@
+FROM,TO,CC,BCC,SUBJECT,BODY,NAME,ME,PHONE,EMAIL"""Sample"" sample@sample.com",a@b.com,,,This is a test,sample_email_template,John Thomas,Nate,(123) 456-7890,nate@awesomeness.com"""Sample 2"" sample2@example.com",c@d.com,f@g.com,,This is a test,sample_email_template,Jane Doe,Nate,(123) 456-7890,nate@awesomeness.com
