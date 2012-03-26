@@ -31,9 +31,14 @@ How to use:
    of the account to which you want to connect. This file
    needs to have 3 lines, with the SMTP host and port on 
    the first, the user account on the second, and the account
-   password on the third. The file "sample@emailaccountfile.com"
-   provides a template.
+   password on the third.
 6) Run sendtmail <workfile> <account file> to use. If you set
    --debug=True, then sendtmail will print out all of your 
    templatized emails, which is super handy to make sure you
    didn't screw anything up.
+
+The following templates are provided as examples:
+
+- Email account file: "sample@emailaccountfile.com"
+- Email template: "sample_email_template"
+- Workfile: "sample_workfile.csv"
