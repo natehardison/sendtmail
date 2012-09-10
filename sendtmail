@@ -94,7 +94,7 @@ def build_email(options):
     email.attach(MIMEText(body, 'plain'))
 
     if 'ATTACHMENT' in options:
-        email.attach(add_attachment(os.path.abspath(options['ATTACHMENT'])))
+        email.attach(generate_attachment(os.path.abspath(options['ATTACHMENT'])))
 
     email['Date'] = formatdate(localtime=True)
 
