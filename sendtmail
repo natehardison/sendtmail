@@ -158,10 +158,15 @@ def main():
         # Each row in the CSV workfile builds one email
         for row in workfile_reader:
             from_addr = row['FROM']
-            to_addrs = row['TO']
+            to_addrs = row['TO'].split(',')
+            if len(row['CC']) > 0:
+                to_addrs += row['CC'].split(',')
+            if len(row['BCC']) > 0:
+                to_addrs += row['BCC'].split(',')
             email = build_email(row)
             
             if args.debug:
+                print to_addrs
                 print email
             else:
                 print "Sending email to %s." % to_addrs
