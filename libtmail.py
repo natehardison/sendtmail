@@ -20,6 +20,7 @@ class ConnectionStatus(nominal.Nominal):
         nominal.Nominal.__init__(self, value)
 #-- class ConnectionStatus --#
 
+
 class DebugStatus(nominal.Nominal):
     OFF = 0
     ON = 1
@@ -30,6 +31,7 @@ class DebugStatus(nominal.Nominal):
             raise ValueError("Invalid debug status %s" % value)
         nominal.Nominal.__init__(self, value)
 #-- class DebugStatus --#
+
 
 class EmailAccount(object):
     """Represents an email account on a remote SMTP server. Can be put in
@@ -56,7 +58,6 @@ class EmailAccount(object):
             print "Sending to " + to_addrs
             self._connection.sendmail(from_addrs, to_addrs, str(email))
     next_email = property(fset=next_email)
-
 
     @property
     def connection_status(self):
@@ -93,6 +94,7 @@ class EmailAccount(object):
     def _disconnect(self):
         self._connection.quit()
 #-- class EmailAccount --#
+
 
 class Templatizer(object):
     """Represents a templating engine. Currently implemented with Jinja2.
